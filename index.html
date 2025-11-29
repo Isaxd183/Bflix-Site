@@ -3,172 +3,172 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bflix Peticiones</title>
+<title>Bflix</title>
 
 <style>
-    body{
-        background:#111;
-        color:#fff;
-        font-family:Arial;
-        margin:0; padding:0;
-        text-align:center;
-    }
+    :root{--bg:#0a0a0a;--card:#111;--txt:#fff;--btn:#18ff8f;}
+    body.light{--bg:#f6f6f6;--card:#ffffff;--txt:#111;--btn:#00c06f;}
 
-    h1{margin-top:30px;}
+    body{background:var(--bg);margin:0;font-family:Arial;color:var(--txt);transition:.3s;}
 
-    .btn{
-        background:#e50914;
-        border:none;
-        padding:10px 20px;
-        color:white;
-        font-size:16px;
-        cursor:pointer;
-        margin:5px;
-        border-radius:6px;
-    }
+    nav{background:#000;padding:15px 22px;display:flex;justify-content:space-between;align-items:center;font-size:22px;}
+    nav span{font-weight:bold;color:#18ff8f;}
+    nav button{background:none;border:none;font-size:20px;color:white;cursor:pointer;margin-left:15px;}
 
-    #peticionesBox{
-        width:90%;
-        max-width:600px;
-        margin:20px auto;
-        background:#1c1c1c;
-        padding:20px;
-        border-radius:10px;
-        display:none;
-    }
+    #home{text-align:center;margin-top:100px;}
+    #home h1{font-size:38px;margin-bottom:6px;}
+    #home p{opacity:.8;margin-bottom:25px;}
+    #home button{padding:10px 24px;border-radius:6px;border:none;background:var(--btn);font-size:18px;font-weight:bold;cursor:pointer;}
 
-    .item{
-        background:#222;
-        padding:10px;
-        margin:10px 0;
-        border-radius:6px;
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-    }
+    #peticionesPanel{display:none;padding:25px;max-width:800px;margin:auto;}
+    .adminMode{color:#18ff8f;font-weight:bold;margin-bottom:10px;}
+    .card{background:var(--card);padding:18px;border-radius:12px;margin-bottom:22px;}
 
-    input{
-        width:90%;
-        padding:10px;
-        margin:10px 0;
-        border-radius:6px;
-        border:none;
-        outline:none;
-    }
+    input,select{width:100%;padding:10px;margin-top:8px;background:#0003;border:none;border-radius:8px;color:var(--txt);font-size:16px;}
+    button.main{background:var(--btn);border:none;padding:11px 20px;font-weight:bold;border-radius:8px;width:100%;margin-top:10px;cursor:pointer;color:black;}
 
-    #adminPanel button{
-        background:#03c203;
-        margin-left:10px;
-    }
+    .petItem{background:var(--card);padding:12px;border-radius:8px;display:flex;justify-content:space-between;margin-bottom:10px;}
+    .acciones button{background:none;border:none;color:var(--btn);margin-left:6px;cursor:pointer;}
+    .realizada{color:#00ff6a;font-weight:bold;}
+
+    #popup{display:none;position:fixed;inset:0;background:#000000aa;backdrop-filter:blur(3px);justify-content:center;align-items:center;}
+    #popup div{background:white;color:black;padding:25px;border-radius:12px;font-size:20px;text-align:center;animation:show .3s;}
+    @keyframes show{from{scale:.6;opacity:0;}to{scale:1;opacity:1;}}
 </style>
+</head>
+<body>
 
-<!-- Firebase -->
+<nav><span>Bflix</span><button onclick="abrirPeticiones()">📩 Peticiones</button></nav>
+
+<section id="home">
+    <h1>Bienvenido a Bflix</h1>
+    <p>Centro multimedia, herramientas y peticiones.</p>
+    <button onclick="abrirPeticiones()">Ir a Peticiones 📩</button>
+</section>
+
+<section id="peticionesPanel">
+
+    <div id="loginBox" class="card">
+        <h2>Acceso 🔐</h2>
+        <button class="main" onclick="modoInvitado()">Ingresar como Invitado 👤</button>
+        <button class="main" onclick="modoAdmin()">Administrador 🔑</button>
+    </div>
+
+    <div id="panelSistema" style="display:none;">
+        <div class="adminMode" id="modoTxt"></div>
+
+        <div style="display:flex;gap:10px;margin-bottom:15px">
+            <button onclick="tema()" class="main" style="flex:1;">🌓 Tema</button>
+            <button onclick="cerrarSesion()" class="main" style="flex:1;">Cerrar</button>
+        </div>
+
+        <div class="card">
+            <h3>Agregar nueva petición</h3>
+            <input id="nombre" placeholder="Nombre">
+            <input id="ano" placeholder="Año">
+            <select id="tipo"><option>Pelicula</option><option>Serie</option></select>
+            <button class="main" onclick="add()">Enviar Petición</button>
+        </div>
+
+        <div class="card">
+            <h3>Listado</h3>
+            <select id="filtro" onchange="mostrar()">
+                <option value="todos">Todos</option>
+                <option value="pendientes">Pendientes</option>
+                <option value="realizadas">Realizadas</option>
+            </select>
+            <input id="search" placeholder="Buscar..." oninput="mostrar()">
+            <div id="lista" style="margin-top:12px;"></div>
+        </div>
+    </div>
+</section>
+
+<div id="popup"><div>📨 Su solicitud ha sido enviada</div></div>
+
 <script type="module">
+/* ========================= 🔥 FIREBASE ========================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, push, set, onValue, update } 
+import { getDatabase, ref, push, set, onValue, update }
 from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
-apiKey: "AIzaSyCkIbgaE-3JuVH0sq5TqGX_RMquI_9WWI4",
-authDomain: "bflix-ac765.firebaseapp.com",
-databaseURL: "https://bflix-ac765-default-rtdb.firebaseio.com",
-projectId: "bflix-ac765",
-storageBucket: "bflix-ac765.firebasestorage.app",
-messagingSenderId: "452307166004",
-appId: "1:452307166004:web:7427d9d40d1cabb6b47b61",
-measurementId: "G-P5PMP8H7ED"
+apiKey:"AIzaSyCkIbgaE-3JuVH0sq5TqGX_RMquI_9WWI4",
+authDomain:"bflix-ac765.firebaseapp.com",
+databaseURL:"https://bflix-ac765-default-rtdb.firebaseio.com",
+projectId:"bflix-ac765",storageBucket:"bflix-ac765.firebasestorage.app",
+messagingSenderId:"452307166004",
+appId:"1:452307166004:web:7427d9d40d1cabb6b47b61"
 };
 
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
-window.dbRef = ref(db,"solicitudes");
+const refDB = ref(db,"peticiones");
 
-// LOGIN
-let esAdmin = false;
+/* ================== FUNCIONES DEL SISTEMA ================== */
 
-window.intentarLogin = ()=>{
-    let u=document.getElementById("user").value;
-    let p=document.getElementById("pass").value;
+let admin=false;
+let pet=[];
 
-    if(u==="BflixTeam" && p==="PassBflixMovian"){
-        esAdmin=true;
-        document.getElementById("login").style.display="none";
-        document.getElementById("peticionesBox").style.display="block";
-    } else{
-        alert("Datos incorrectos");
-    }
-};
+/* Cargar datos realtime */
+onValue(refDB,s=>{
+    pet=[];
+    s.forEach(x=>pet.push({...x.val(),id:x.key}));
+    mostrar(); /* muestra todo igual */
+});
 
-// ENVIAR SOLICITUD
-window.enviarSolicitud = ()=>{
-    let v=document.getElementById("nuevaPeticion").value.trim();
-    if(v==="") return;
+function add(){
+    let n=nombre.value.trim(),a=ano.value.trim(),t=tipo.value;
+    if(!n||!a) return alert("Completa todo");
 
-    const nueva = push(dbRef);
-    set(nueva,{
-        texto:v,
-        estado:"🚫Pendiente🚫",
-        fecha:new Date().toLocaleString()
-    }).then(()=>{
-        alert("✔ Su solicitud ha sido enviada");
-        document.getElementById("nuevaPeticion").value="";
-    });
-};
+    push(refDB,{txt:`${n} (${a}) [${t}]`,real:false});
+    popup();
+}
 
-// Marcar como completado (solo admin)
-window.realizado = (id)=>{
-    if(!esAdmin) return;
+function mostrar(){
+    lista.innerHTML="";
+    let f=filtro.value.toLowerCase(),bus=search.value.toLowerCase();
 
-    update(ref(db,"solicitudes/"+id),{
-        estado:"🟢Realizado🟢"
-    });
-};
-
-// Cargar solicitudes realtime
-onValue(dbRef,(snap)=>{
-    let box=document.getElementById("lista");
-    box.innerHTML="";
-
-    snap.forEach(x=>{
-        let d=x.val();
-        let id=x.key;
+    pet.forEach(x=>{
+        if(f=="pendientes" && x.real) return;
+        if(f=="realizadas" && !x.real) return;
+        if(!x.txt.toLowerCase().includes(bus)) return;
 
         let div=document.createElement("div");
-        div.className="item";
-        div.innerHTML=`
-            <span>${d.texto} <br><small>${d.estado}</small></span>
-            ${esAdmin?`<button onclick="realizado('${id}')">Marcar</button>`:""}
-        `;
-        box.appendChild(div);
+        div.className="petItem";
+
+        let estado=x.real?`<b class='realizada'>✔ REALIZADA ✔</b>`:`<b style='color:#ff4d4d;'>🚫 PENDIENTE 🚫</b>`;
+        div.innerHTML=`<span>${x.txt} — ${estado}</span>`;
+
+        if(admin && !x.real){
+            let b=document.createElement("button");
+            b.textContent="Marcar realizada ✔";
+            b.onclick=()=>update(ref(db,"peticiones/"+x.id),{real:true});
+            div.appendChild(b);
+        }
+
+        lista.appendChild(div);
     });
-});
+}
+
+/* ===================== LOGIN / TEMAS ===================== */
+
+function modoInvitado(){admin=false;iniciar();}
+function modoAdmin(){
+    let u=prompt("Usuario:"),p=prompt("Contraseña:");
+    if(u=="BflixTeam" && p=="PassBflixMovian"){admin=true;iniciar();}
+    else alert("Acceso denegado ❌");
+}
+
+function iniciar(){
+    loginBox.style.display="none";
+    panelSistema.style.display="block";
+    modoTxt.textContent=admin?"Modo Administrador ✔":"Modo Invitado 👤";
+    mostrar();
+}
+function cerrarSesion(){location.reload();}
+function abrirPeticiones(){home.style.display="none";peticionesPanel.style.display="block";}
+function popup(){popup.style.display="flex";setTimeout(()=>popup.style.display="none",1800);}
+function tema(){document.body.classList.toggle("light");}
 </script>
-
-</head>
-<body>
-
-<h1>📌 Peticiones</h1>
-
-<!-- LOGIN -->
-<div id="login">
-    <input id="user" placeholder="Usuario">
-    <input id="pass" type="password" placeholder="Contraseña">
-    <button class="btn" onclick="intentarLogin()">Iniciar sesión</button>
-</div>
-
-<!-- PANEL -->
-<div id="peticionesBox">
-
-    <h2>Añadir nueva solicitud</h2>
-    <input id="nuevaPeticion" placeholder="Escribe tu petición aquí">
-    <button class="btn" onclick="enviarSolicitud()">Enviar</button>
-
-    <hr>
-
-    <h2>Solicitudes recibidas</h2>
-    <div id="lista"></div>
-
-</div>
-
 </body>
 </html>
