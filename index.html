@@ -43,7 +43,9 @@
         background:none;border:none;
         font-size:20px;color:white;
         cursor:pointer;
-        margin-left:15px;
+    }
+    nav button:first-of-type {
+        margin-right: 15px; /* Añade margen a la derecha para separar del siguiente botón */
     }
 
     #home{
@@ -58,7 +60,7 @@
         cursor:pointer;
     }
 
-    #peticionesPanel{
+    #peticionesPanel, #reportPanel{
         display:none;padding:25px;
         max-width:800px;margin:auto;
     }
@@ -82,7 +84,7 @@
     button.main{
         background:var(--btn);border:none;
         padding:11px 20px;font-weight:bold;
-        border-radius:8px;width:100%;margin-top:10px;
+        border-radius:8ml px;width:100%;margin-top:10px;
         cursor:pointer;color:black;
     }
 
@@ -117,16 +119,17 @@
 <nav>
     <span>Bflix</span>
     <button onclick="abrirPeticiones()">📩 Peticiones</button>
+    <button onclick="abrirReportes()">🚨 Reportar Caído</button>
 </nav>
 
 <section id="home">
     <h1>Bienvenido a Bflix</h1>
     <p>Centro multimedia, herramientas y peticiones.</p>
     <button onclick="abrirPeticiones()">Ir a Peticiones 📩</button>
+    <button onclick="abrirReportes()">Reportar Caído 🚨</button>
 </section>
 
 <section id="peticionesPanel">
-
     <div id="loginBox" class="card">
         <h2>Acceso 🔐</h2>
         <button class="main" onclick="modoInvitado()">Ingresar como Invitado 👤</button>
@@ -165,9 +168,40 @@
     </div>
 </section>
 
+<section id="reportPanel">
+    <div id="loginReporte" class="card">
+        <h2>Reportar Contenido Caído 🚨</h2>
+        <button class="main" onclick="modoInvitadoReporte()">Ingresar como Invitado 👤</button>
+        <button class="main" onclick="modoAdminReporte()">Administrador 🔑</button>
+    </div>
+
+    <div id="panelReporteSistema" style="display:none;">
+        <div class="adminMode" id="modoReporteTxt"></div>
+
+        <div style="display:flex;gap:10px;margin-bottom:15px">
+            <button onclick="tema()" class="main" style="flex:1;">🌓 Tema</button>
+            <button onclick="cerrarSesion()" class="main" style="flex:1;">Cerrar</button>
+        </div>
+
+        <div class="card">
+            <h3>Reportar Contenido</h3>
+            <input id="reporteTitulo" placeholder="Título del contenido caído">
+            <select id="reporteTipo">
+                <option>Pelicula</option>
+                <option>Serie</option>
+            </select>
+            <button class="main" onclick="reportar()">Enviar Reporte</button>
+        </div>
+
+        <div class="card">
+            <h3>Reportes</h3>
+            <div id="listaReportes" style="margin-top:12px;"></div>
+        </div>
+    </div>
+</section>
+
 <div id="popup"><div>📨 Su solicitud ha sido enviada</div></div>
 
-<!-- ✨ Firebase global sin modificar estilo -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, push, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -185,11 +219,21 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 let petGlobal = [];
+let reportGlobal = [];
 let admin = false;
 
 window.abrirPeticiones = () =>{
     home.style.display="none";
+    reportPanel.style.display="none";
     peticionesPanel.style.display="block";
+    if(admin) iniciar();
+}
+
+window.abrirReportes = () =>{
+    home.style.display="none";
+    peticionesPanel.style.display="none";
+    reportPanel.style.display="block";
+    if(admin) iniciarReportes();
 }
 
 window.modoInvitado = ()=>{admin=false; iniciar();}
@@ -204,6 +248,72 @@ function iniciar(){
     panelSistema.style.display="block";
     modoTxt.textContent=admin?"Modo Administrador ✔":"Modo Invitado 👤";
     mostrar();
+}
+
+window.modoInvitadoReporte = ()=>{admin=false; iniciarReportes();}
+window.modoAdminReporte = ()=>{
+    let u=prompt("Usuario:");let p=prompt("Contraseña:");
+    if(u=="BflixTeam" && p=="PassBflixMovian"){admin=true;iniciarReportes();}
+    else alert("Acceso denegado ❌");
+}
+
+function iniciarReportes(){
+    loginReporte.style.display="none";
+    panelReporteSistema.style.display="block";
+    modoReporteTxt.textContent=admin?"Modo Administrador ✔":"Modo Invitado 👤";
+    mostrarReportes();
+}
+
+window.reportar = ()=>{
+    let t=reporteTitulo.value.trim(), tp=reporteTipo.value;
+    if(!t) return alert("Completa el título");
+
+    push(ref(db,"bflixReportes/"),{
+        titulo:t,
+        tipo:tp,
+        reparado:false
+    });
+
+    popup();
+}
+
+onValue(ref(db,"bflixReportes/"),snap=>{
+    reportGlobal=[];
+    snap.forEach(x=>reportGlobal.push({id:x.key,...x.val()}));
+    if(reportPanel.style.display === "block") mostrarReportes();
+});
+
+window.mostrarReportes = ()=>{
+    listaReportes.innerHTML="";
+    
+    reportGlobal.forEach(x=>{
+        if(!admin && x.reparado) return;
+
+        let div=document.createElement("div");
+        div.className="petItem";
+
+        let estado = x.reparado
+            ? "<b class='realizada'>✔ REPARADO ✔</b>"
+            : "<b style='color:#ff4d4d;'>🚫 CAÍDO 🚫</b>";
+        
+        div.innerHTML=`<span>${x.titulo} [${x.tipo}] — ${estado}</span>`;
+
+        if(admin && !x.reparado){
+            let acciones = document.createElement("div");
+            acciones.className = "acciones";
+            let b=document.createElement("button");
+            b.textContent="Marcar Reparado ✔";
+            b.onclick=()=>update(ref(db,"bflixReportes/"+x.id),{reparado:true});
+            acciones.appendChild(b);
+            div.appendChild(acciones);
+        }
+
+        listaReportes.appendChild(div);
+    });
+
+    if(listaReportes.children.length === 0){
+        listaReportes.innerHTML = `<p style="opacity:.6;text-align:center;">${admin ? "No hay reportes pendientes." : "No hay contenido caído reportado."}</p>`;
+    }
 }
 
 window.cerrarSesion = ()=>location.reload();
@@ -228,7 +338,7 @@ function popup(){
 onValue(ref(db,"bflix/"),snap=>{
     petGlobal=[];
     snap.forEach(x=>petGlobal.push({id:x.key,...x.val()}));
-    mostrar();
+    if(peticionesPanel.style.display === "block") mostrar();
 });
 
 window.mostrar = ()=>{
