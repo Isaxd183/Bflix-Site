@@ -45,7 +45,7 @@
         cursor:pointer;
     }
     nav button:first-of-type {
-        margin-right: 15px; /* Añade margen a la derecha para separar del siguiente botón */
+        margin-right: 15px;
     }
 
     #home{
@@ -84,7 +84,7 @@
     button.main{
         background:var(--btn);border:none;
         padding:11px 20px;font-weight:bold;
-        border-radius:8ml px;width:100%;margin-top:10px;
+        border-radius:8px;width:100%;margin-top:10px;
         cursor:pointer;color:black;
     }
 
@@ -222,6 +222,36 @@ let petGlobal = [];
 let reportGlobal = [];
 let admin = false;
 
+// 🔥🔥🔥 CORRECCIÓN: Declaración de variables de elementos HTML (inputs, select)
+// Para Peticiones
+const nombre = document.getElementById("nombre");
+const ano = document.getElementById("ano");
+const tipo = document.getElementById("tipo");
+const filtro = document.getElementById("filtro");
+const search = document.getElementById("search");
+const lista = document.getElementById("lista");
+
+// Para Reportes
+const reporteTitulo = document.getElementById("reporteTitulo");
+const reporteTipo = document.getElementById("reporteTipo");
+const listaReportes = document.getElementById("listaReportes");
+
+// Elementos de control y paneles
+const home = document.getElementById("home");
+const peticionesPanel = document.getElementById("peticionesPanel");
+const reportPanel = document.getElementById("reportPanel");
+const loginBox = document.getElementById("loginBox");
+const panelSistema = document.getElementById("panelSistema");
+const modoTxt = document.getElementById("modoTxt");
+const loginReporte = document.getElementById("loginReporte");
+const panelReporteSistema = document.getElementById("panelReporteSistema");
+const modoReporteTxt = document.getElementById("modoReporteTxt");
+const popupElem = document.getElementById("popup"); // Elemento del popup
+
+// ----------------------------------------------------
+// LÓGICA DE NAVEGACIÓN
+// ----------------------------------------------------
+
 window.abrirPeticiones = () =>{
     home.style.display="none";
     reportPanel.style.display="none";
@@ -236,6 +266,10 @@ window.abrirReportes = () =>{
     if(admin) iniciarReportes();
 }
 
+// ----------------------------------------------------
+// LÓGICA DE PETICIONES
+// ----------------------------------------------------
+
 window.modoInvitado = ()=>{admin=false; iniciar();}
 window.modoAdmin = ()=>{
     let u=prompt("Usuario:");let p=prompt("Contraseña:");
@@ -249,6 +283,63 @@ function iniciar(){
     modoTxt.textContent=admin?"Modo Administrador ✔":"Modo Invitado 👤";
     mostrar();
 }
+
+window.add = ()=>{
+    // Ahora 'nombre', 'ano', y 'tipo' están correctamente definidos
+    let n=nombre.value.trim(),a=ano.value.trim(),t=tipo.value; 
+    if(!n||!a) return alert("Completa todo");
+
+    push(ref(db,"bflix/"),{
+        txt:`${n} (${a}) [${t}]`,
+        real:false
+    });
+
+    popup();
+}
+
+onValue(ref(db,"bflix/"),snap=>{
+    petGlobal=[];
+    snap.forEach(x=>petGlobal.push({id:x.key,...x.val()}));
+    if(peticionesPanel.style.display === "block") mostrar();
+});
+
+window.mostrar = ()=>{
+    lista.innerHTML="";
+    
+    // Filtrado y búsqueda existente (se mantiene)
+    const searchText = search.value.toLowerCase();
+
+    petGlobal.forEach(x=>{
+        if(filtro.value=="pendientes" && x.real) return;
+        if(filtro.value=="realizadas" && !x.real) return;
+        
+        // Aplica búsqueda
+        if (searchText && !x.txt.toLowerCase().includes(searchText)) return;
+
+
+        let div=document.createElement("div");
+        div.className="petItem";
+
+        let estado = x.real
+            ? "<b class='realizada'>✔ REALIZADA ✔</b>"
+            : "<b style='color:#ff4d4d;'>🚫 PENDIENTE 🚫</b>";
+
+        div.innerHTML=`<span>${x.txt} — ${estado}</span>`;
+
+        if(admin && !x.real){
+            let b=document.createElement("button");
+            b.textContent="Marcar realizada ✔";
+            b.onclick=()=>update(ref(db,"bflix/"+x.id),{real:true});
+            div.appendChild(b);
+        }
+
+        lista.appendChild(div);
+    });
+}
+
+// ----------------------------------------------------
+// LÓGICA DE REPORTES
+// ----------------------------------------------------
 
 window.modoInvitadoReporte = ()=>{admin=false; iniciarReportes();}
 window.modoAdminReporte = ()=>{
@@ -265,6 +356,7 @@ function iniciarReportes(){
 }
 
 window.reportar = ()=>{
+    // Ahora 'reporteTitulo' y 'reporteTipo' están correctamente definidos
     let t=reporteTitulo.value.trim(), tp=reporteTipo.value;
     if(!t) return alert("Completa el título");
 
@@ -316,55 +408,16 @@ window.mostrarReportes = ()=>{
     }
 }
 
+// ----------------------------------------------------
+// LÓGICA COMPARTIDA
+// ----------------------------------------------------
+
 window.cerrarSesion = ()=>location.reload();
 
-window.add = ()=>{
-    let n=nombre.value.trim(),a=ano.value.trim(),t=tipo.value;
-    if(!n||!a) return alert("Completa todo");
-
-    push(ref(db,"bflix/"),{
-        txt:`${n} (${a}) [${t}]`,
-        real:false
-    });
-
-    popup();
-}
-
 function popup(){
-    popupElem.style.display="flex";
+    // Ahora 'popupElem' está definido
+    popupElem.style.display="flex"; 
     setTimeout(()=>popupElem.style.display="none",1700);
-}
-
-onValue(ref(db,"bflix/"),snap=>{
-    petGlobal=[];
-    snap.forEach(x=>petGlobal.push({id:x.key,...x.val()}));
-    if(peticionesPanel.style.display === "block") mostrar();
-});
-
-window.mostrar = ()=>{
-    lista.innerHTML="";
-    petGlobal.forEach(x=>{
-        if(filtro.value=="pendientes" && x.real) return;
-        if(filtro.value=="realizadas" && !x.real) return;
-
-        let div=document.createElement("div");
-        div.className="petItem";
-
-        let estado = x.real
-            ? "<b class='realizada'>✔ REALIZADA ✔</b>"
-            : "<b style='color:#ff4d4d;'>🚫 PENDIENTE 🚫</b>";
-
-        div.innerHTML=`<span>${x.txt} — ${estado}</span>`;
-
-        if(admin && !x.real){
-            let b=document.createElement("button");
-            b.textContent="Marcar realizada ✔";
-            b.onclick=()=>update(ref(db,"bflix/"+x.id),{real:true});
-            div.appendChild(b);
-        }
-
-        lista.appendChild(div);
-    });
 }
 
 window.tema = ()=>document.body.classList.toggle("light");
