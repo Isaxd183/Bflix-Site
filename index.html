@@ -203,27 +203,21 @@
 <div id="popup"><div>📨 Su solicitud ha sido enviada</div></div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, push, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+// ----------------------------------------------------
+// SUSTITUCIÓN DE FIREBASE POR SUPABASE - CREDENCIALES
+// ----------------------------------------------------
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-const firebaseConfig = {
-    apiKey:"AIzaSyCkIbgaE-3JuVH0sq5TqGX_RMquI_9WWI4",
-    authDomain:"bflix-ac765.firebaseapp.com",
-    databaseURL:"https://bflix-ac765-default-rtdb.firebaseio.com",
-    projectId:"bflix-ac765",
-    storageBucket:"bflix-ac765.firebasestorage.app",
-    messagingSenderId:"452307166004",
-    appId:"1:452307166004:web:7427d9d40d1cabb6b47b61"
-};
+// TUS CREDENCIALES DE SUPABASE INSERTADAS:
+const supabaseUrl = 'https://lnxshgqeudirnkcmmrhf.supabase.co'; 
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxueHNoZ3FldWRpcm5rY21tcmhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1NDEwNDksImV4cCI6MjA4MDExNzA0OX0.7kLAynA-P0ILwhOBZVECcWNazpMh0Jt9rEud06brTuk'; 
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
 let petGlobal = [];
 let reportGlobal = [];
 let admin = false;
 
-// 🔥🔥🔥 CORRECCIÓN: Declaración de variables de elementos HTML (inputs, select)
-// Para Peticiones
+// Declaración de variables de elementos HTML
 const nombre = document.getElementById("nombre");
 const ano = document.getElementById("ano");
 const tipo = document.getElementById("tipo");
@@ -231,12 +225,10 @@ const filtro = document.getElementById("filtro");
 const search = document.getElementById("search");
 const lista = document.getElementById("lista");
 
-// Para Reportes
 const reporteTitulo = document.getElementById("reporteTitulo");
 const reporteTipo = document.getElementById("reporteTipo");
 const listaReportes = document.getElementById("listaReportes");
 
-// Elementos de control y paneles
 const home = document.getElementById("home");
 const peticionesPanel = document.getElementById("peticionesPanel");
 const reportPanel = document.getElementById("reportPanel");
@@ -246,7 +238,8 @@ const modoTxt = document.getElementById("modoTxt");
 const loginReporte = document.getElementById("loginReporte");
 const panelReporteSistema = document.getElementById("panelReporteSistema");
 const modoReporteTxt = document.getElementById("modoReporteTxt");
-const popupElem = document.getElementById("popup"); // Elemento del popup
+const popupElem = document.getElementById("popup");
+
 
 // ----------------------------------------------------
 // LÓGICA DE NAVEGACIÓN
@@ -256,6 +249,9 @@ window.abrirPeticiones = () =>{
     home.style.display="none";
     reportPanel.style.display="none";
     peticionesPanel.style.display="block";
+    
+    loginBox.style.display = admin ? "none" : "block";
+    panelSistema.style.display = admin ? "block" : "none";
     if(admin) iniciar();
 }
 
@@ -263,7 +259,11 @@ window.abrirReportes = () =>{
     home.style.display="none";
     peticionesPanel.style.display="none";
     reportPanel.style.display="block";
-    if(admin) iniciarReportes();
+
+    loginReporte.style.display = admin ? "none" : "block";
+    panelReporteSistema.style.display = admin ? "block" : "none";
+    
+    iniciarReportes();
 }
 
 // ----------------------------------------------------
@@ -281,41 +281,55 @@ function iniciar(){
     loginBox.style.display="none";
     panelSistema.style.display="block";
     modoTxt.textContent=admin?"Modo Administrador ✔":"Modo Invitado 👤";
-    mostrar();
+    cargarPeticiones();
 }
 
-window.add = ()=>{
-    // Ahora 'nombre', 'ano', y 'tipo' están correctamente definidos
+window.add = async ()=>{
     let n=nombre.value.trim(),a=ano.value.trim(),t=tipo.value; 
     if(!n||!a) return alert("Completa todo");
 
-    push(ref(db,"bflix/"),{
-        txt:`${n} (${a}) [${t}]`,
-        real:false
-    });
-
-    popup();
+    const { error } = await supabase
+        .from('peticiones') 
+        .insert({
+            txt:`${n} (${a}) [${t}]`,
+            real:false
+        });
+    
+    if (error) {
+        alert("Error al enviar la petición: " + error.message);
+        console.error(error);
+    } else {
+        popup();
+        cargarPeticiones(); 
+    }
 }
 
-onValue(ref(db,"bflix/"),snap=>{
-    petGlobal=[];
-    snap.forEach(x=>petGlobal.push({id:x.key,...x.val()}));
+async function cargarPeticiones(){
+    const { data, error } = await supabase
+        .from('peticiones')
+        .select('id, txt, real') 
+        .order('id', { ascending: false }); 
+
+    if (error) {
+        console.error("Error al cargar peticiones: ", error);
+        petGlobal = []; 
+    } else {
+        petGlobal = data;
+    }
+    
     if(peticionesPanel.style.display === "block") mostrar();
-});
+}
 
 window.mostrar = ()=>{
     lista.innerHTML="";
     
-    // Filtrado y búsqueda existente (se mantiene)
-    const searchText = search.value.toLowerCase();
+    const searchText = search.value ? search.value.toLowerCase() : "";
 
     petGlobal.forEach(x=>{
         if(filtro.value=="pendientes" && x.real) return;
         if(filtro.value=="realizadas" && !x.real) return;
         
-        // Aplica búsqueda
         if (searchText && !x.txt.toLowerCase().includes(searchText)) return;
-
 
         let div=document.createElement("div");
         div.className="petItem";
@@ -329,12 +343,25 @@ window.mostrar = ()=>{
         if(admin && !x.real){
             let b=document.createElement("button");
             b.textContent="Marcar realizada ✔";
-            b.onclick=()=>update(ref(db,"bflix/"+x.id),{real:true});
+            b.onclick=()=>actualizarPeticion(x.id, { real: true }); 
             div.appendChild(b);
         }
 
         lista.appendChild(div);
     });
+}
+
+async function actualizarPeticion(id, cambios) {
+    const { error } = await supabase
+        .from('peticiones')
+        .update(cambios)
+        .eq('id', id); 
+
+    if (error) {
+        alert("Error al actualizar la petición: " + error.message);
+    } else {
+        cargarPeticiones();
+    }
 }
 
 // ----------------------------------------------------
@@ -351,29 +378,47 @@ window.modoAdminReporte = ()=>{
 function iniciarReportes(){
     loginReporte.style.display="none";
     panelReporteSistema.style.display="block";
+
     modoReporteTxt.textContent=admin?"Modo Administrador ✔":"Modo Invitado 👤";
-    mostrarReportes();
+    cargarReportes();
 }
 
-window.reportar = ()=>{
-    // Ahora 'reporteTitulo' y 'reporteTipo' están correctamente definidos
+window.reportar = async ()=>{
     let t=reporteTitulo.value.trim(), tp=reporteTipo.value;
     if(!t) return alert("Completa el título");
 
-    push(ref(db,"bflixReportes/"),{
-        titulo:t,
-        tipo:tp,
-        reparado:false
-    });
+    const { error } = await supabase
+        .from('reportes') 
+        .insert({
+            titulo:t,
+            tipo:tp,
+            reparado:false
+        });
 
-    popup();
+    if (error) {
+        alert("Error al enviar el reporte: " + error.message);
+        console.error(error);
+    } else {
+        popup();
+        cargarReportes(); 
+    }
 }
 
-onValue(ref(db,"bflixReportes/"),snap=>{
-    reportGlobal=[];
-    snap.forEach(x=>reportGlobal.push({id:x.key,...x.val()}));
+async function cargarReportes(){
+    const { data, error } = await supabase
+        .from('reportes')
+        .select('id, titulo, tipo, reparado')
+        .order('id', { ascending: false });
+
+    if (error) {
+        console.error("Error al cargar reportes: ", error);
+        reportGlobal = []; 
+    } else {
+        reportGlobal = data;
+    }
+    
     if(reportPanel.style.display === "block") mostrarReportes();
-});
+}
 
 window.mostrarReportes = ()=>{
     listaReportes.innerHTML="";
@@ -395,7 +440,7 @@ window.mostrarReportes = ()=>{
             acciones.className = "acciones";
             let b=document.createElement("button");
             b.textContent="Marcar Reparado ✔";
-            b.onclick=()=>update(ref(db,"bflixReportes/"+x.id),{reparado:true});
+            b.onclick=()=>actualizarReporte(x.id, { reparado: true }); 
             acciones.appendChild(b);
             div.appendChild(acciones);
         }
@@ -408,6 +453,20 @@ window.mostrarReportes = ()=>{
     }
 }
 
+async function actualizarReporte(id, cambios) {
+    const { error } = await supabase
+        .from('reportes')
+        .update(cambios)
+        .eq('id', id);
+
+    if (error) {
+        alert("Error al actualizar el reporte: " + error.message);
+    } else {
+        cargarReportes();
+    }
+}
+
+
 // ----------------------------------------------------
 // LÓGICA COMPARTIDA
 // ----------------------------------------------------
@@ -415,12 +474,16 @@ window.mostrarReportes = ()=>{
 window.cerrarSesion = ()=>location.reload();
 
 function popup(){
-    // Ahora 'popupElem' está definido
     popupElem.style.display="flex"; 
     setTimeout(()=>popupElem.style.display="none",1700);
 }
 
 window.tema = ()=>document.body.classList.toggle("light");
+
+// Cargamos las listas al inicio
+cargarPeticiones();
+cargarReportes();
+
 </script>
 
 </body>
