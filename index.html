@@ -11,12 +11,14 @@
         --card:#111;
         --txt:#fff;
         --btn:#18ff8f;
+        --delete-btn:#ff4d4d;
     }
     body.light{
         --bg:#f6f6f6;
         --card:#ffffff;
         --txt:#111;
         --btn:#00c06f;
+        --delete-btn:#c00000;
     }
 
     body{
@@ -34,6 +36,8 @@
         justify-content:space-between;
         align-items:center;
         font-size:22px;
+        /* Flex-wrap para acomodar más botones */
+        flex-wrap:wrap; 
     }
     nav span{
         font-weight:bold;
@@ -43,6 +47,8 @@
         background:none;border:none;
         font-size:20px;color:white;
         cursor:pointer;
+        /* Espacio para que no se peguen si hay muchos */
+        margin-left: 10px; 
     }
     nav button:first-of-type {
         margin-right: 15px;
@@ -58,9 +64,10 @@
         border:none;background:var(--btn);
         font-size:18px;font-weight:bold;
         cursor:pointer;
+        margin: 5px; /* Espacio entre los botones de home */
     }
 
-    #peticionesPanel, #reportPanel{
+    #peticionesPanel, #reportPanel, #m3uPanel{
         display:none;padding:25px;
         max-width:800px;margin:auto;
     }
@@ -73,6 +80,22 @@
         border-radius:12px;
         margin-bottom:22px;
     }
+    
+    /* Estilo para las tarjetas de películas en M3U */
+    .movieCard {
+        background: var(--card);
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        border-left: 5px solid var(--btn);
+        position: relative;
+    }
+    
+    .movieCard h4 {
+        margin-top: 0;
+        color: var(--btn);
+    }
+
 
     input,select{
         width:100%;padding:10px;margin-top:8px;
@@ -80,12 +103,31 @@
         border-radius:8px;color:var(--txt);
         font-size:16px;
     }
+    
+    /* Contenedor para los botones */
+    .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
 
     button.main{
         background:var(--btn);border:none;
         padding:11px 20px;font-weight:bold;
         border-radius:8px;width:100%;margin-top:10px;
         cursor:pointer;color:black;
+    }
+    
+    /* Estilos para el botón de quitar película */
+    .remove-movie {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        color: var(--delete-btn);
+        font-weight: bold;
+        cursor: pointer;
     }
 
     .petItem{
@@ -95,8 +137,14 @@
         margin-bottom:10px;
     }
     .acciones button{
-        background:none;border:none;color:var(--btn);
+        background:none;border:none;
         margin-left:6px;cursor:pointer;
+    }
+    .acciones .marcar{
+        color:var(--btn);
+    }
+    .acciones .eliminar{
+        color:var(--delete-btn);
     }
     .realizada{color:#00ff6a;font-weight:bold;}
 
@@ -112,14 +160,59 @@
         animation:show .3s;
     }
     @keyframes show{from{scale:.6;opacity:0;}to{scale:1;opacity:1;}}
+    
+    /* Estilo para el popup de M3U */
+    #m3uPopupContent {
+        background: var(--card);
+        color: var(--txt);
+        width: 90%;
+        max-width: 600px;
+        padding: 25px;
+        border-radius: 12px;
+        animation: show .3s;
+        text-align: left;
+    }
+    #m3uContent {
+        width: 100%;
+        height: 150px;
+        background: #000;
+        color: #fff;
+        border: 1px solid var(--btn);
+        padding: 10px;
+        font-family: monospace;
+        margin-top: 10px;
+        resize: vertical;
+        font-size: 12px;
+    }
+    #m3uPopupContent h3 {
+        margin-top: 0;
+    }
+
+    /* Estilos para el input de tipo file oculto y el nuevo contenedor de URL */
+    .file-input-container {
+        display: none; 
+        margin-bottom: 15px;
+    }
+    #m3uUrlInput {
+        width: calc(100% - 22px);
+        padding: 10px;
+        margin-top: 10px;
+        margin-bottom: 5px;
+        background: var(--card);
+        border: 1px solid #333;
+        border-radius: 8px;
+        color: var(--txt);
+    }
 </style>
 </head>
 <body>
 
 <nav>
     <span>Bflix</span>
+    <button onclick="volverAHome()" id="backButton" style="display:none;">🏠 Volver al Menú Principal</button>
     <button onclick="abrirPeticiones()">📩 Peticiones</button>
     <button onclick="abrirReportes()">🚨 Reportar Caído</button>
+    <button onclick="abrirM3u()">📽️ M3u (Crear/Editar)</button>
 </nav>
 
 <section id="home">
@@ -127,8 +220,38 @@
     <p>Centro multimedia, herramientas y peticiones.</p>
     <button onclick="abrirPeticiones()">Ir a Peticiones 📩</button>
     <button onclick="abrirReportes()">Reportar Caído 🚨</button>
+    <button onclick="abrirM3u(false)">Generar M3U 📽️</button>
+    <button onclick="abrirM3u(true)">Editar M3U 📝</button>
 </section>
 
+<section id="m3uPanel">
+    <h2 id="m3uPanelTitle">📽️ Generador de Archivos M3U</h2>
+    
+    <div class="card">
+        <h3 id="m3uListTitle">Lista de Películas</h3>
+        
+        <div id="m3uInputOptions" class="file-input-container">
+            <h4 style="margin-bottom: 5px;">Cargar desde URL o Archivo</h4>
+            
+            <input type="url" id="m3uUrlInput" placeholder="Pega aquí el enlace directo (.m3u o .txt)">
+            <button class="main" style="background:#00c0ff; margin-top:5px;" onclick="cargarUrlM3U()">Cargar desde URL 🌐</button>
+            
+            <p style="text-align:center; margin: 10px 0;">--- O ---</p>
+
+            <input type="file" id="m3uFileInput" accept=".m3u,.txt" onchange="cargarArchivoM3U(event)" style="display: none;">
+            <button class="main" style="background:#ff9900; margin-top:5px;" onclick="document.getElementById('m3uFileInput').click()">Cargar M3U/TXT desde Archivo 📂</button>
+        </div>
+
+        <div id="m3uMoviesContainer">
+            </div>
+
+        <div class="button-group">
+            <button class="main" style="background:#444;" onclick="agregarPelicula()">Añadir otra Película</button>
+            <button class="main" onclick="generarM3u()">Generar M3U</button>
+        </div>
+        
+    </div>
+</section>
 <section id="peticionesPanel">
     <div id="loginBox" class="card">
         <h2>Acceso 🔐</h2>
@@ -202,6 +325,22 @@
 
 <div id="popup"><div>📨 Su solicitud ha sido enviada</div></div>
 
+<div id="m3uPopup">
+    <div id="m3uPopupContent">
+        <h3>Archivo M3U Generado</h3>
+        <textarea id="m3uContent" readonly></textarea>
+        
+        <div class="button-group">
+            <button class="main" style="background:#444;" onclick="copiarM3u()">📋 Copiar Texto</button>
+        </div>
+        <div class="button-group">
+            <button class="main" style="flex:1;" onclick="descargarM3u('m3u')">Descargar como .m3u</button>
+            <button class="main" style="flex:1;background:#ff9900;" onclick="descargarM3u('txt')">Descargar como .txt</button>
+        </div>
+        <button class="main" style="margin-top:15px;background:#333;" onclick="document.getElementById('m3uPopup').style.display='none';">Cerrar</button>
+    </div>
+</div>
+
 <script type="module">
 // ----------------------------------------------------
 // SUSTITUCIÓN DE FIREBASE POR SUPABASE - CREDENCIALES
@@ -217,18 +356,16 @@ let petGlobal = [];
 let reportGlobal = [];
 let admin = false;
 
-// Declaración de variables de elementos HTML
+// Declaración de variables de elementos HTML (EXISTENTES)
 const nombre = document.getElementById("nombre");
 const ano = document.getElementById("ano");
 const tipo = document.getElementById("tipo");
 const filtro = document.getElementById("filtro");
 const search = document.getElementById("search");
 const lista = document.getElementById("lista");
-
 const reporteTitulo = document.getElementById("reporteTitulo");
 const reporteTipo = document.getElementById("reporteTipo");
 const listaReportes = document.getElementById("listaReportes");
-
 const home = document.getElementById("home");
 const peticionesPanel = document.getElementById("peticionesPanel");
 const reportPanel = document.getElementById("reportPanel");
@@ -239,16 +376,38 @@ const loginReporte = document.getElementById("loginReporte");
 const panelReporteSistema = document.getElementById("panelReporteSistema");
 const modoReporteTxt = document.getElementById("modoReporteTxt");
 const popupElem = document.getElementById("popup");
+const backButton = document.getElementById("backButton"); 
+
+// DECLARACIÓN DE VARIABLES DE ELEMENTOS HTML (NUEVOS M3U)
+const m3uPanel = document.getElementById("m3uPanel");
+const m3uMoviesContainer = document.getElementById("m3uMoviesContainer");
+const m3uPopup = document.getElementById("m3uPopup");
+const m3uContent = document.getElementById("m3uContent");
+const m3uPanelTitle = document.getElementById("m3uPanelTitle");
+const m3uListTitle = document.getElementById("m3uListTitle");
+const m3uInputOptions = document.getElementById("m3uInputOptions");
+const m3uUrlInput = document.getElementById("m3uUrlInput");
 
 
 // ----------------------------------------------------
 // LÓGICA DE NAVEGACIÓN
 // ----------------------------------------------------
 
+window.volverAHome = () => {
+    peticionesPanel.style.display="none";
+    reportPanel.style.display="none";
+    m3uPanel.style.display="none"; 
+    home.style.display="block";
+    backButton.style.display="none"; 
+}
+
+
 window.abrirPeticiones = () =>{
     home.style.display="none";
     reportPanel.style.display="none";
+    m3uPanel.style.display="none"; 
     peticionesPanel.style.display="block";
+    backButton.style.display="inline-block"; 
     
     loginBox.style.display = admin ? "none" : "block";
     panelSistema.style.display = admin ? "block" : "none";
@@ -258,7 +417,9 @@ window.abrirPeticiones = () =>{
 window.abrirReportes = () =>{
     home.style.display="none";
     peticionesPanel.style.display="none";
+    m3uPanel.style.display="none"; 
     reportPanel.style.display="block";
+    backButton.style.display="inline-block"; 
 
     loginReporte.style.display = admin ? "none" : "block";
     panelReporteSistema.style.display = admin ? "block" : "none";
@@ -266,8 +427,282 @@ window.abrirReportes = () =>{
     iniciarReportes();
 }
 
+/**
+ * Función unificada para abrir el panel M3U, en modo Crear o Editar.
+ * @param {boolean} modoEditar - Si es true, activa el modo edición.
+ */
+window.abrirM3u = (modoEditar = false) =>{
+    home.style.display="none";
+    peticionesPanel.style.display="none";
+    reportPanel.style.display="none";
+    m3uPanel.style.display="block";
+    backButton.style.display="inline-block"; 
+    
+    // Configurar la interfaz según el modo
+    if (modoEditar) {
+        m3uPanelTitle.textContent = "📝 Editor de Archivos M3U";
+        m3uListTitle.textContent = "Películas a Editar";
+        m3uInputOptions.style.display = "block"; // Mostrar opciones de carga
+        m3uUrlInput.value = ""; // Limpiar el campo de URL
+    } else {
+        m3uPanelTitle.textContent = "📽️ Generador de Archivos M3U";
+        m3uListTitle.textContent = "Lista de Películas";
+        m3uInputOptions.style.display = "none"; // Ocultar opciones de carga
+    }
+
+    // Limpiar y asegurar que haya al menos una tarjeta vacía si no es modo edición
+    if (m3uMoviesContainer.children.length === 0 || !modoEditar) {
+        m3uMoviesContainer.innerHTML = '';
+        agregarPelicula(); 
+    }
+}
+
+
 // ----------------------------------------------------
-// LÓGICA DE PETICIONES
+// LÓGICA DE GENERADOR/EDITOR M3U
+// ----------------------------------------------------
+
+window.agregarPelicula = (nombre = '', enlace = '', portada = '') => {
+    const card = document.createElement("div");
+    card.className = "movieCard";
+    card.setAttribute('data-id', Date.now()); 
+    
+    const cardCount = m3uMoviesContainer.children.length + 1;
+
+    card.innerHTML = `
+        <button class="remove-movie" onclick="quitarPelicula(this.parentElement)">❌</button>
+        <h4>Película #${cardCount}</h4>
+        <input class="m3u-nombre" placeholder="Nombre de la Película" required value="${nombre}">
+        <input class="m3u-enlace" type="url" placeholder="Enlace (URL) del video/stream" required value="${enlace}">
+        <input class="m3u-portada" type="url" placeholder="Portada (URL) de la imagen (opcional)" value="${portada}">
+    `;
+    
+    m3uMoviesContainer.appendChild(card);
+    actualizarNumeracionM3U();
+}
+
+window.quitarPelicula = (cardElement) => {
+    cardElement.remove();
+    // Si se queda vacío, añadir automáticamente uno nuevo
+    if (m3uMoviesContainer.children.length === 0) {
+        agregarPelicula();
+    }
+    actualizarNumeracionM3U();
+}
+
+function actualizarNumeracionM3U() {
+    Array.from(m3uMoviesContainer.children).forEach((card, index) => {
+        const h4 = card.querySelector('h4');
+        if (h4) {
+            h4.textContent = `Película #${index + 1}`;
+        }
+    });
+}
+
+/**
+ * NUEVO: Carga contenido M3U/TXT desde una URL.
+ */
+window.cargarUrlM3U = async () => {
+    const url = m3uUrlInput.value.trim();
+    if (!url) {
+        alert("Por favor, introduce un enlace M3U o TXT válido.");
+        return;
+    }
+    
+    // Ocultar el contenido actual y mostrar un mensaje de carga
+    m3uMoviesContainer.innerHTML = '<p style="text-align:center;">Cargando contenido desde la URL...</p>';
+
+    try {
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`Error al cargar el enlace: ${response.statusText}`);
+        }
+        
+        const content = await response.text();
+        handleM3UContent(content, 'URL');
+        
+    } catch (error) {
+        alert(`Error al cargar el M3U desde la URL. Asegúrate de que el enlace sea accesible y no tenga problemas de CORS. Detalle: ${error.message}`);
+        console.error('Error de carga M3U/URL:', error);
+        m3uMoviesContainer.innerHTML = '';
+        agregarPelicula(); // Vuelve a una tarjeta vacía
+    }
+}
+
+
+/**
+ * Carga contenido M3U/TXT desde un archivo subido.
+ */
+window.cargarArchivoM3U = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        handleM3UContent(e.target.result, 'Archivo');
+    };
+    reader.onerror = function() {
+        alert('Error al leer el archivo.');
+        m3uMoviesContainer.innerHTML = '';
+        agregarPelicula();
+    };
+
+    reader.readAsText(file);
+    // Limpiar el input para permitir recargar el mismo archivo
+    event.target.value = null; 
+}
+
+
+/**
+ * NUEVO: Procesa el contenido M3U/TXT cargado (ya sea por URL o Archivo).
+ */
+function handleM3UContent(content, source) {
+    // 1. Limpiar el contenedor actual
+    m3uMoviesContainer.innerHTML = '';
+
+    // 2. Parsear el contenido
+    const movies = parseM3UContent(content);
+
+    // 3. Cargar las películas en la interfaz
+    if (movies.length > 0) {
+        movies.forEach(movie => {
+            agregarPelicula(movie.nombre, movie.enlace, movie.portada);
+        });
+        popupElem.children[0].textContent = `✅ ${movies.length} películas cargadas desde ${source}.`;
+    } else {
+        // Si no se pudo parsear nada, se añade una tarjeta vacía por defecto
+        agregarPelicula(); 
+        popupElem.children[0].textContent = `⚠️ No se encontraron películas válidas en el contenido de ${source}.`;
+    }
+    popup();
+}
+
+
+/**
+ * Parsea el contenido de un archivo M3U/TXT.
+ */
+function parseM3UContent(content) {
+    const lines = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const movies = [];
+    let isM3UFormat = lines[0] === '#EXTM3U';
+
+    if (isM3UFormat) {
+        // Modo M3U (EXTINF)
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.startsWith('#EXTINF:')) {
+                let name = line.substring(line.lastIndexOf(',') + 1).trim();
+                let logoMatch = line.match(/tvg-logo="([^"]+)"/);
+                let logo = logoMatch ? logoMatch[1] : '';
+
+                // La URL debe estar en la siguiente línea
+                let url = lines[i + 1] && !lines[i + 1].startsWith('#') ? lines[i + 1] : '';
+
+                if (name && url) {
+                    movies.push({ nombre: name, enlace: url, portada: logo });
+                }
+            }
+        }
+    } else {
+        // Modo TXT simple (asume que cada línea es un enlace)
+        lines.filter(line => line.startsWith('http')).forEach((url, index) => {
+            movies.push({ 
+                nombre: `Enlace Directo #${index + 1}`, 
+                enlace: url, 
+                portada: '' 
+            });
+        });
+    }
+
+    return movies;
+}
+
+
+window.generarM3u = () => {
+    const movies = [];
+    let valid = true;
+
+    // Recorre todas las tarjetas de películas
+    Array.from(m3uMoviesContainer.children).forEach(card => {
+        const nombreInput = card.querySelector('.m3u-nombre');
+        const enlaceInput = card.querySelector('.m3u-enlace');
+        const portadaInput = card.querySelector('.m3u-portada');
+
+        const nombre = nombreInput.value.trim();
+        const enlace = enlaceInput.value.trim();
+        const portada = portadaInput.value.trim();
+
+        // Validar que el nombre y el enlace no estén vacíos
+        if (nombre && enlace) {
+            movies.push({ nombre, enlace, portada });
+        } else if (nombre || enlace) {
+            // Si falta alguno de los dos campos principales
+            valid = false;
+        }
+        // Si ambos están vacíos, se ignora esa "tarjeta" si es la que queda por defecto
+    });
+
+    if (!valid) {
+        alert("Por favor, rellena el Nombre y el Enlace de todas las películas que deseas incluir.");
+        return;
+    }
+    
+    if (movies.length === 0) {
+        alert("Debes añadir al menos una película válida para generar el archivo M3U.");
+        return;
+    }
+
+    // CABECERA M3U EXTINF
+    let m3uContentText = "#EXTM3U\n";
+
+    movies.forEach(movie => {
+        // Formato: #EXTINF:-1 tvg-logo="PORTADA",NOMBRE
+        let line = `#EXTINF:-1`;
+        if (movie.portada) {
+            line += ` tvg-logo="${movie.portada}"`;
+        }
+        line += `,${movie.nombre}\n`;
+        line += `${movie.enlace}\n`;
+        
+        m3uContentText += line;
+    });
+
+    // Mostrar el popup con el contenido generado
+    m3uContent.value = m3uContentText;
+    m3uPopup.style.display = "flex";
+}
+
+
+window.copiarM3u = () => {
+    m3uContent.select();
+    document.execCommand('copy');
+    // Usar el popup genérico para notificar
+    popupElem.children[0].textContent = "📋 Contenido M3U Copiado";
+    popup();
+}
+
+window.descargarM3u = (ext) => {
+    const text = m3uContent.value;
+    if (!text) return;
+
+    const filename = `playlist.${ext}`;
+    const element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+    element.setAttribute('download', filename);
+
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    
+    // Usar el popup genérico para notificar
+    popupElem.children[0].textContent = `💾 Archivo .${ext} Descargado`;
+    popup();
+}
+
+// ----------------------------------------------------
+// LÓGICA DE PETICIONES (EXISTENTE)
 // ----------------------------------------------------
 
 window.modoInvitado = ()=>{admin=false; iniciar();}
@@ -299,6 +734,7 @@ window.add = async ()=>{
         alert("Error al enviar la petición: " + error.message);
         console.error(error);
     } else {
+        popupElem.children[0].textContent = "📨 Su solicitud ha sido enviada";
         popup();
         cargarPeticiones(); 
     }
@@ -339,13 +775,28 @@ window.mostrar = ()=>{
             : "<b style='color:#ff4d4d;'>🚫 PENDIENTE 🚫</b>";
 
         div.innerHTML=`<span>${x.txt} — ${estado}</span>`;
+        
+        let acciones = document.createElement("div"); // CREAMOS CONTENEDOR DE ACCIONES
+        acciones.className = "acciones";
 
-        if(admin && !x.real){
-            let b=document.createElement("button");
-            b.textContent="Marcar realizada ✔";
-            b.onclick=()=>actualizarPeticion(x.id, { real: true }); 
-            div.appendChild(b);
+        if(admin){
+            // Botón de eliminar, siempre visible para admin
+            let bDelete=document.createElement("button");
+            bDelete.textContent="❌ Eliminar";
+            bDelete.className = "eliminar";
+            bDelete.onclick=()=>eliminarPeticion(x.id); 
+            acciones.appendChild(bDelete);
+
+            if(!x.real){
+                let b=document.createElement("button");
+                b.textContent="Marcar realizada ✔";
+                b.className = "marcar";
+                b.onclick=()=>actualizarPeticion(x.id, { real: true }); 
+                acciones.appendChild(b);
+            }
         }
+        
+        if(acciones.children.length > 0) div.appendChild(acciones);
 
         lista.appendChild(div);
     });
@@ -364,8 +815,25 @@ async function actualizarPeticion(id, cambios) {
     }
 }
 
+window.eliminarPeticion = async (id) => {
+    if (confirm("¿Estás seguro de que quieres ELIMINAR esta petición?")) {
+        const { error } = await supabase
+            .from('peticiones')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            alert("Error al eliminar la petición: " + error.message);
+        } else {
+            popupElem.children[0].textContent = "🗑️ Petición Eliminada";
+            popup();
+            cargarPeticiones();
+        }
+    }
+}
+
 // ----------------------------------------------------
-// LÓGICA DE REPORTES
+// LÓGICA DE REPORTES (EXISTENTE)
 // ----------------------------------------------------
 
 window.modoInvitadoReporte = ()=>{admin=false; iniciarReportes();}
@@ -399,6 +867,7 @@ window.reportar = async ()=>{
         alert("Error al enviar el reporte: " + error.message);
         console.error(error);
     } else {
+        popupElem.children[0].textContent = "📨 Su solicitud ha sido enviada";
         popup();
         cargarReportes(); 
     }
@@ -435,13 +904,25 @@ window.mostrarReportes = ()=>{
         
         div.innerHTML=`<span>${x.titulo} [${x.tipo}] — ${estado}</span>`;
 
-        if(admin && !x.reparado){
+        if(admin){
             let acciones = document.createElement("div");
             acciones.className = "acciones";
-            let b=document.createElement("button");
-            b.textContent="Marcar Reparado ✔";
-            b.onclick=()=>actualizarReporte(x.id, { reparado: true }); 
-            acciones.appendChild(b);
+            
+            // Botón de eliminar, siempre visible para admin
+            let bDelete=document.createElement("button");
+            bDelete.textContent="❌ Eliminar";
+            bDelete.className = "eliminar";
+            bDelete.onclick=()=>eliminarReporte(x.id); 
+            acciones.appendChild(bDelete);
+            
+            if(!x.reparado){
+                let b=document.createElement("button");
+                b.textContent="Marcar Reparado ✔";
+                b.className = "marcar";
+                b.onclick=()=>actualizarReporte(x.id, { reparado: true }); 
+                acciones.appendChild(b);
+            }
+            
             div.appendChild(acciones);
         }
 
@@ -466,6 +947,23 @@ async function actualizarReporte(id, cambios) {
     }
 }
 
+window.eliminarReporte = async (id) => {
+    if (confirm("¿Estás seguro de que quieres ELIMINAR este reporte de contenido caído?")) {
+        const { error } = await supabase
+            .from('reportes')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            alert("Error al eliminar el reporte: " + error.message);
+        } else {
+            popupElem.children[0].textContent = "🗑️ Reporte Eliminado";
+            popup();
+            cargarReportes();
+        }
+    }
+}
+
 
 // ----------------------------------------------------
 // LÓGICA COMPARTIDA
@@ -476,6 +974,8 @@ window.cerrarSesion = ()=>location.reload();
 function popup(){
     popupElem.style.display="flex"; 
     setTimeout(()=>popupElem.style.display="none",1700);
+    // Reiniciar el texto del popup al genérico después de usarlo con otra función
+    setTimeout(()=>popupElem.children[0].textContent = "📨 Su solicitud ha sido enviada", 1800);
 }
 
 window.tema = ()=>document.body.classList.toggle("light");
@@ -483,8 +983,7 @@ window.tema = ()=>document.body.classList.toggle("light");
 // Cargamos las listas al inicio
 cargarPeticiones();
 cargarReportes();
-
 </script>
 
 </body>
-</html>
+                </html>
